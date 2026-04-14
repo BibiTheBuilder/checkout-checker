@@ -1088,10 +1088,10 @@
   <h2>2. Scan your receipt</h2>
   <p class="ocr-tip">Tip: lay the receipt flat, avoid shadows, and make sure text is sharp.</p>
   <div class="upload-area" id="uploadArea">
-    <input type="file" accept="image/*" capture="environment" id="receiptInput" onchange="handleFile(this.files[0])">
+    <input type="file" accept="image/*" multiple id="receiptInput" onchange="handleFiles(this.files)">
     <div class="upload-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
-    <div class="upload-text">Tap to take a photo or choose an image</div>
-    <div class="upload-hint">Multiple photos? Just tap again to add more.</div>
+    <div class="upload-text">Tap to take a photo or choose from your library</div>
+    <div class="upload-hint">Long receipt? Pick multiple photos at once.</div>
   </div>
   <div class="photo-list" id="photoList"></div>
   <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
@@ -1347,10 +1347,15 @@ function esc(s) {
   return d.innerHTML;
 }
 
+function handleFiles(files) {
+  if (!files || !files.length) return;
+  for (const f of files) handleFile(f);
+  // Reset the input so the same files can be re-added
+  document.getElementById('receiptInput').value = '';
+}
+
 function handleFile(file) {
   if (!file) return;
-  // Reset the input so the same file can be re-added
-  document.getElementById('receiptInput').value = '';
 
   const id = ++photoIdCounter;
   const url = URL.createObjectURL(file);
