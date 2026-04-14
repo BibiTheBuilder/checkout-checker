@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #eef5d0;
+    color: #1a1a1a;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+    font-size: 17px;
+    line-height: 1.5;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Decorative background shapes */
+  .bg-shapes {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .bg-shapes div {
+    position: absolute;
+    opacity: 0.25;
+  }
+  /* Big indigo arch - top right */
+  .bg-s1 {
+    width: 260px; height: 320px;
+    background: #4a3fc7;
+    border-radius: 130px 130px 40px 40px;
+    top: -40px; right: -60px;
+    transform: rotate(15deg);
+  }
+  /* Hot pink C-curve - bottom right */
+  .bg-s2 {
+    width: 200px; height: 200px;
+    border: 40px solid #ff3faa;
+    border-radius: 50%;
+    border-left-color: transparent;
+    bottom: 60px; right: -50px;
+    transform: rotate(-20deg);
+  }
+  /* Orange nested stripes inside the pink curve */
+  .bg-s3 {
+    width: 140px; height: 140px;
+    border: 28px solid #ff6d1f;
+    border-radius: 50%;
+    border-left-color: transparent;
+    bottom: 90px; right: -20px;
+    transform: rotate(-20deg);
+  }
+  /* Green rounded square - top left */
+  .bg-s4 {
+    width: 120px; height: 120px;
+    background: #2ecc71;
+    border-radius: 22px;
+    top: 80px; left: -30px;
+    transform: rotate(-8deg);
+  }
+  /* Lavender dots on the green square corners */
+  .bg-s4::before, .bg-s4::after {
+    content: '';
+    position: absolute;
+    width: 20px; height: 20px;
+    background: #9b8fdb;
+    border-radius: 50%;
+  }
+  .bg-s4::before { top: -8px; left: -8px; }
+  .bg-s4::after { bottom: -8px; right: -8px; }
+  /* Cyan arrow bar - middle */
+  .bg-s5 {
+    width: 220px; height: 36px;
+    background: #00c8ff;
+    border-radius: 6px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-3deg);
+  }
+  .bg-s5::after {
+    content: '';
+    position: absolute;
+    right: -24px; top: -10px;
+    border-left: 30px solid #00c8ff;
+    border-top: 28px solid transparent;
+    border-bottom: 28px solid transparent;
+  }
+  /* Yellow-green soft rectangle - behind middle */
+  .bg-s6 {
+    width: 180px; height: 240px;
+    background: #d4e870;
+    border-radius: 16px;
+    top: 200px; left: 50%;
+    transform: translateX(-50%) rotate(3deg);
+    opacity: 0.18;
+  }
+  /* Lavender flower/blob - bottom left */
+  .bg-s7 {
+    width: 90px; height: 90px;
+    background: #b8a9e8;
+    border-radius: 50% 50% 50% 20%;
+    bottom: 180px; left: -10px;
+    transform: rotate(25deg);
+  }
+  /* Small magenta circle - mid left */
+  .bg-s8 {
+    width: 50px; height: 50px;
+    background: #ff3faa;
+    border-radius: 50%;
+    top: 400px; left: 20px;
+  }
+  /* Dark rounded square with blob - bottom center */
+  .bg-s9 {
+    width: 100px; height: 100px;
+    background: #1a1a2e;
+    border-radius: 20px;
+    bottom: 40px; left: 30px;
+    transform: rotate(5deg);
+    opacity: 0.18;
+  }
+  /* Orange circle - top center-left */
+  .bg-s10 {
+    width: 70px; height: 70px;
+    background: #ff6d1f;
+    border-radius: 50%;
+    top: 30px; left: 40%;
+  }
+
+  /* Content sits above shapes */
+  h1, .subtitle, .section { position: relative; z-index: 1; }
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 4px;
+    color: #4a3fc7;
+    font-weight: 900;
+  }
+  .subtitle {
+    color: #1a1a1a;
+    font-size: 1rem;
+    margin-bottom: 24px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.85);
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 10px;
+  }
+
+  /* Sections */
+  .section {
+    background: #fff;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 16px rgba(74,63,199,0.1);
+    border: 3px solid #c8b8f5;
+  }
+  .section h2 {
+    font-size: 1.15rem;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #4a3fc7;
+    font-weight: 800;
+  }
+
+  /* Deal form */
+  .deal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .deal-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .deal-form input, .deal-form select {
+    padding: 12px 12px;
+    border: 2.5px solid #c8b8f5;
+    border-radius: 14px;
+    font-size: 1rem;
+    background: #f4f0ff;
+    color: #1a1a1a;
+    font-weight: 500;
+  }
+  .deal-form input:focus, .deal-form select:focus {
+    outline: none;
+    border-color: #4a3fc7;
+    box-shadow: 0 0 0 3px rgba(74,63,199,0.2);
+  }
+  .deal-form input::placeholder { color: #a099cc; }
+  .deal-form .name-input { width: 100%; }
+  .deal-form .price-input { flex: 1; min-width: 0; }
+  .deal-form select { flex: 1; min-width: 0; }
+  .deal-form .custom-input { flex: 1; }
+  .deal-form .qty-input { width: 52px; flex: 0 0 52px; text-align: center; }
+
+  /* Mode toggle */
+  .mode-toggle {
+    display: flex;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 2.5px solid #c8b8f5;
+    margin-bottom: 6px;
+    background: #f4f0ff;
+  }
+  .mode-toggle button {
+    flex: 1;
+    padding: 10px 6px;
+    border: none;
+    background: transparent;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: #6b5ebd;
+    transition: all 0.15s;
+    font-weight: 600;
+  }
+  .mode-toggle button.active {
+    background: #4a3fc7;
+    color: #fff;
+    font-weight: 800;
+  }
+
+  .deal-form .btn-add {
+    padding: 12px 18px;
+    background: #ff3faa;
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 3px 0 #c4207a;
+  }
+  .deal-form .btn-add:active {
+    background: #e0358f;
+    box-shadow: 0 1px 0 #c4207a;
+    transform: translateY(2px);
+  }
+  .deal-form .btn-add-full {
+    width: 100%;
+    padding: 14px;
+  }
+
+  /* Quantity stepper */
+  .qty-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .qty-label {
+    font-size: 1rem;
+    color: #1a1a1a;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .stepper {
+    display: flex;
+    align-items: stretch;
+    border: 2.5px solid #c8b8f5;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #f4f0ff;
+  }
+  .stepper-btn {
+    width: 44px;
+    border: none;
+    background: #e8dfff;
+    color: #4a3fc7;
+    font-size: 1.4rem;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1;
+    padding: 0;
+  }
+  .stepper-btn:hover { background: #d8cdff; }
+  .stepper-btn:active { background: #c8b8f5; }
+  .stepper .qty-input {
+    width: 48px;
+    border: none;
+    border-left: 2px solid #c8b8f5;
+    border-right: 2px solid #c8b8f5;
+    background: #fff;
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    padding: 10px 4px;
+  }
+  .stepper .qty-input:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 2px #4a3fc7;
+  }
+
+  /* Deal added flash */
+  @keyframes dealFlash {
+    0% { background: #d4f5d4; }
+    100% { background: transparent; }
+  }
+  .deal-item.just-added {
+    animation: dealFlash 0.8s ease-out;
+  }
+
+  .calculated-price {
+    font-size: 0.95rem;
+    color: #1a8a3f;
+    font-weight: 700;
+    padding: 4px 0;
+    min-height: 1.4em;
+  }
+
+  /* Deal list */
+  .deal-list { list-style: none; }
+  .deal-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 2px solid #eef5d0;
+    font-size: 1rem;
+  }
+  .deal-item:last-child { border-bottom: none; }
+  .deal-item .info { flex: 1; }
+  .deal-item .item-name { font-weight: 800; color: #1a1a1a; }
+  .deal-item .item-price { color: #1a8a3f; font-weight: 800; }
+  .deal-item .remove {
+    background: none;
+    border: none;
+    color: #c8b8f5;
+    cursor: pointer;
+    font-size: 1.4rem;
+    padding: 6px 10px;
+    font-weight: 700;
+  }
+  .deal-item .remove:hover { color: #ff3faa; }
+  .empty-state {
+    color: #a099cc;
+    font-size: 1rem;
+    text-align: center;
+    padding: 14px;
+    font-weight: 600;
+  }
+
+  /* Receipt upload */
+  .upload-area {
+    border: 3px dashed #00c8ff;
+    border-radius: 18px;
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    background: #eef9ff;
+  }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: #4a3fc7;
+    background: #f4f0ff;
+  }
+  .upload-area input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .upload-icon { font-size: 2.4rem; margin-bottom: 8px; }
+  .upload-text { color: #4a3fc7; font-size: 1rem; font-weight: 600; }
+  .upload-hint { color: #999; font-size: 0.8rem; margin-top: 4px; }
+  .upload-icon svg { color: #4a3fc7; }
+
+  /* OCR tips & warning */
+  .ocr-tip {
+    color: #555;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+    font-weight: 500;
+    padding: 8px 12px;
+    background: #f9f6e8;
+    border-radius: 10px;
+    border-left: 3px solid #e8c840;
+  }
+  .ocr-warning {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #fdf0e8;
+    border-radius: 10px;
+    border-left: 3px solid #e8820a;
+    font-size: 0.85rem;
+    color: #8a5000;
+    font-weight: 600;
+  }
+
+  /* Deal edit */
+  .deal-item .info { flex: 1; cursor: pointer; }
+  .deal-item .info:hover { opacity: 0.7; }
+  .deal-edit {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 2px solid #eef5d0;
+  }
+  .deal-edit input {
+    padding: 6px 8px;
+    border: 2px solid #c8b8f5;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    background: #f4f0ff;
+  }
+  .deal-edit .edit-name { flex: 1; }
+  .deal-edit .edit-price { width: 80px; }
+  .deal-edit button {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+  }
+  .deal-edit .edit-save { background: #4a3fc7; color: #fff; }
+  .deal-edit .edit-cancel { background: #eee; color: #555; }
+
+  /* Photo list */
+  .photo-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .photo-thumb {
+    position: relative;
+    width: 80px;
+    height: 100px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 3px solid #c8b8f5;
+  }
+  .photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .photo-thumb .photo-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(74,63,199,0.8);
+    color: #fff;
+    font-size: 0.75rem;
+    text-align: center;
+    padding: 3px 0;
+    font-weight: 700;
+  }
+  .photo-thumb .photo-remove {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    background: #ff3faa;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    line-height: 20px;
+    text-align: center;
+    font-weight: 700;
+  }
+  .photo-thumb .photo-remove:hover { background: #e0358f; }
+  .photo-thumb.processing { opacity: 0.5; }
+  .photo-thumb.done { border-color: #1a8a3f; }
+
+  /* Progress */
+  .progress-bar {
+    height: 8px;
+    background: #eef5d0;
+    border-radius: 4px;
+    margin-top: 14px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00c8ff, #4a3fc7, #ff3faa);
+    width: 0%;
+    transition: width 0.3s;
+  }
+  .progress-text {
+    font-size: 0.95rem;
+    color: #4a3fc7;
+    margin-top: 8px;
+    text-align: center;
+    display: none;
+    font-weight: 600;
+  }
+
+  /* Results */
+  .results-section { display: none; }
+  .result-item {
+    padding: 14px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+    font-size: 1rem;
+  }
+  .result-found {
+    background: #e6f9eb;
+    border-left: 6px solid #1a8a3f;
+  }
+  .result-missing {
+    background: #ffe6f0;
+    border-left: 6px solid #ff3faa;
+  }
+  .result-item .status {
+    font-weight: 800;
+    margin-bottom: 4px;
+    font-size: 1.05rem;
+  }
+  .result-found .status { color: #0d6b2e; }
+  .result-missing .status { color: #cc0066; }
+  .result-item .detail { color: #333; font-size: 0.95rem; }
+
+  .summary {
+    padding: 14px;
+    border-radius: 14px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 1.15rem;
+    margin-bottom: 14px;
+  }
+  .summary-good { background: #e6f9eb; color: #0d6b2e; }
+  .summary-bad { background: #ffe6f0; color: #cc0066; }
+
+  /* Raw text toggle */
+  .raw-toggle {
+    font-size: 0.9rem;
+    color: #6b5ebd;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-top: 10px;
+    font-weight: 600;
+  }
+  .raw-text {
+    display: none;
+    margin-top: 10px;
+    padding: 14px;
+    background: #f4f0ff;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-family: monospace;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    color: #333;
+  }
+
+  .btn-check {
+    width: 100%;
+    padding: 16px;
+    background: #ff6d1f;
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    cursor: pointer;
+    margin-top: 8px;
+    box-shadow: 0 4px 0 #c44e0e;
+    letter-spacing: 0.02em;
+  }
+  .btn-check:disabled {
+    background: #c8b8f5;
+    box-shadow: 0 4px 0 #a099cc;
+    cursor: not-allowed;
+  }
+  .btn-check:not(:disabled):active {
+    background: #e55d15;
+    box-shadow: 0 1px 0 #c44e0e;
+    transform: translateY(3px);
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 480px) {
+    body { padding: 12px; font-size: 16px; }
+    h1 { font-size: 1.5rem; }
+    .section { padding: 14px; border-radius: 16px; margin-bottom: 14px; }
+
+    /* Deal form mobile tweaks */
+    .deal-form .qty-input { width: 46px; flex: 0 0 46px; padding: 12px 6px; }
+    .deal-form .btn-add { padding: 12px 14px; }
+    .deal-form select { font-size: 0.9rem; }
+
+    /* Mode toggle stacks better with smaller text */
+    .mode-toggle button { font-size: 0.8rem; padding: 10px 4px; }
+
+    /* Upload area a bit tighter */
+    .upload-area { padding: 20px 14px; }
+
+    /* Photo thumbs smaller */
+    .photo-thumb { width: 65px; height: 82px; }
+
+    /* Buttons full width and taller for touch */
+    .btn-check { padding: 18px; font-size: 1.1rem; border-radius: 14px; }
+    .deal-form .btn-add { padding: 12px 14px; }
+
+    /* Scale down background shapes */
+    .bg-s1 { width: 160px; height: 200px; top: -30px; right: -40px; }
+    .bg-s2 { width: 130px; height: 130px; border-width: 26px; }
+    .bg-s3 { width: 90px; height: 90px; border-width: 18px; }
+    .bg-s4 { width: 80px; height: 80px; }
+    .bg-s5 { width: 140px; height: 24px; }
+    .bg-s5::after { right: -16px; top: -8px; border-left-width: 20px; border-top-width: 20px; border-bottom-width: 20px; }
+    .bg-s6 { width: 120px; height: 160px; }
+    .bg-s7 { width: 60px; height: 60px; }
+    .bg-s8 { width: 35px; height: 35px; }
+    .bg-s9 { width: 70px; height: 70px; }
+    .bg-s10 { width: 45px; height: 45px; }
+  }
+
+  /* Extra small screens (iPhone SE etc) */
+  @media (max-width: 360px) {
+    body { padding: 8px; }
+    .section { padding: 12px; }
+    .mode-toggle { flex-direction: column; }
+    .mode-toggle button { padding: 10px 8px; font-size: 0.85rem; }
+    .deal-form .price-input { min-width: 70px; }
+  }
+
+  /* ============ VIBE TOGGLE ============ */
+  .vibe-toggle {
+    display: flex;
+    width: 160px;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 2.5px solid #c8b8f5;
+    margin: 20px auto 16px;
+    position: relative;
+    z-index: 1;
+  }
+  .vibe-toggle button {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    background: #f4f0ff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: #6b5ebd;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .vibe-toggle button.active {
+    background: #4a3fc7;
+    color: #fff;
+  }
+  .vibe-toggle button:last-child.active {
+    background: linear-gradient(135deg, #ff3faa, #ff6d1f, #ffe600, #39ff14, #00c8ff, #4a3fc7);
+    background-size: 300% 300%;
+    animation: rainbowBtn 1.5s ease infinite;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  @keyframes rainbowBtn {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* ============ CHAOS LAYER ============ */
+  .chaos-layer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  body.chaos-mode .chaos-layer { display: block; }
+  body.chaos-mode .bg-shapes { display: none; }
+  body.chaos-mode {
+    background: #0a0a12;
+    color: #e0e0ff;
+  }
+  body.chaos-mode .subtitle {
+    background: rgba(10,10,18,0.85);
+    color: #fff;
+  }
+  /* More vertical space in chaos mode */
+  body.chaos-mode .deal-form { gap: 18px; }
+  body.chaos-mode .section {
+    background: #12122a;
+    border: 2px solid transparent;
+    border-radius: 20px;
+    background-clip: padding-box;
+    box-shadow: 0 0 0 2px #ff2dff, 0 0 0 4px #00e5ff, 0 0 25px rgba(255,45,255,0.2), 0 0 50px rgba(0,229,255,0.1);
+    animation: sectionWobble 3s ease-in-out infinite;
+    padding: 22px;
+  }
+  body.chaos-mode .section h2 {
+    color: #39ff14;
+    text-shadow: 0 0 10px #39ff1466;
+  }
+  /* "Receipt too long" hint text — white */
+  body.chaos-mode .section p[style] { color: #fff !important; }
+  body.chaos-mode h1 {
+    background: linear-gradient(90deg, #ff2dff, #ff6d1f, #ffe600, #39ff14, #00e5ff, #ff2dff);
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: rainbowText 2s linear infinite;
+    filter: drop-shadow(0 0 12px #ff2dff88);
+  }
+  /* Input fields — brighter purple border */
+  body.chaos-mode .deal-form input,
+  body.chaos-mode .deal-form select {
+    background: #1a1a30;
+    border-color: #7b68c8;
+    color: #fff;
+  }
+  body.chaos-mode .deal-form input::placeholder { color: #7b68c8; }
+  body.chaos-mode .deal-form input:focus,
+  body.chaos-mode .deal-form select:focus {
+    border-color: #ff2dff;
+    box-shadow: 0 0 12px #ff2dff44;
+  }
+  /* Mode toggle — white text on both states */
+  body.chaos-mode .mode-toggle {
+    border-color: #7b68c8;
+    background: #1a1a30;
+  }
+  body.chaos-mode .mode-toggle button { color: #fff; }
+  body.chaos-mode .mode-toggle button.active {
+    background: #ff2dff;
+    color: #fff;
+    text-shadow: 0 0 8px #ff2dff88;
+  }
+  /* Add button */
+  body.chaos-mode .btn-add {
+    background: #ff2dff;
+    color: #fff;
+    box-shadow: 0 3px 0 #aa00aa, 0 0 15px #ff2dff44;
+  }
+  body.chaos-mode .btn-add:active { background: #dd20dd; }
+  /* Check receipt — neon green with black text */
+  body.chaos-mode .btn-check {
+    background: #39ff14;
+    color: #0a0a12;
+    box-shadow: 0 4px 0 #1a8a2e, 0 0 25px #39ff1444;
+    text-shadow: none;
+  }
+  body.chaos-mode .btn-check:not(:disabled):active {
+    background: #2ee00f;
+    box-shadow: 0 1px 0 #1a8a2e, 0 0 25px #39ff1444;
+  }
+  body.chaos-mode .btn-check:disabled {
+    background: #2a2a5a;
+    color: #fff;
+    box-shadow: 0 4px 0 #1a1a30;
+  }
+  /* Deal list */
+  body.chaos-mode .deal-item { border-bottom-color: #2a2a5a; }
+  body.chaos-mode .deal-item .item-name { color: #fff; }
+  body.chaos-mode .deal-item .item-price { color: #39ff14; text-shadow: 0 0 6px #39ff1444; }
+  body.chaos-mode .deal-item .remove { color: #7b68c8; }
+  body.chaos-mode .deal-item .remove:hover { color: #ff2dff; }
+  body.chaos-mode .empty-state { color: #7b68c8; }
+  body.chaos-mode .calculated-price { color: #39ff14; text-shadow: 0 0 8px #39ff1444; }
+  /* Upload area */
+  body.chaos-mode .upload-area {
+    border-color: #00e5ff;
+    background: #0a0a1a;
+    box-shadow: 0 0 15px #00e5ff22;
+  }
+  body.chaos-mode .upload-area:hover { border-color: #ff2dff; background: #1a1a30; }
+  body.chaos-mode .upload-text { color: #00e5ff; text-shadow: 0 0 6px #00e5ff44; }
+  body.chaos-mode .progress-fill {
+    background: linear-gradient(90deg, #ff2dff, #00e5ff, #39ff14, #ff2dff);
+    background-size: 300% 100%;
+    animation: rainbowSlide 1.5s linear infinite;
+  }
+  body.chaos-mode .progress-text { color: #00e5ff; }
+  /* Results */
+  body.chaos-mode .result-found { background: #0a1a10; border-left-color: #39ff14; }
+  body.chaos-mode .result-found .status { color: #39ff14; text-shadow: 0 0 8px #39ff1444; }
+  body.chaos-mode .result-missing { background: #1a0a14; border-left-color: #ff2dff; }
+  body.chaos-mode .result-missing .status { color: #ff2dff; text-shadow: 0 0 8px #ff2dff44; }
+  body.chaos-mode .result-item .detail { color: #ccc; }
+  body.chaos-mode .summary-good { background: #0a1a10; color: #39ff14; text-shadow: 0 0 8px #39ff1444; }
+  body.chaos-mode .summary-bad { background: #1a0a14; color: #ff2dff; text-shadow: 0 0 8px #ff2dff44; }
+  body.chaos-mode .raw-toggle { color: #00e5ff; }
+  body.chaos-mode .raw-text { background: #1a1a30; color: #ccc; }
+  /* Photo thumbs */
+  body.chaos-mode .photo-thumb { border-color: #7b68c8; }
+  body.chaos-mode .photo-thumb.done { border-color: #39ff14; box-shadow: 0 0 8px #39ff1444; }
+  body.chaos-mode .photo-thumb .photo-label { background: rgba(255,45,255,0.8); }
+  body.chaos-mode .photo-thumb .photo-remove { background: #ff2dff; }
+  /* Vibe toggle in dark mode */
+  body.chaos-mode .vibe-toggle { border-color: #7b68c8; }
+  body.chaos-mode .vibe-toggle button { color: #fff; background: #1a1a30; }
+  @keyframes rainbowText {
+    0% { background-position: 0% center; }
+    100% { background-position: 300% center; }
+  }
+  @keyframes sectionWobble {
+    0%,100% { transform: rotate(-0.3deg); }
+    50% { transform: rotate(0.3deg); }
+  }
+
+  .chaos-item {
+    position: absolute;
+    font-size: 2.5rem;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  /* Kittens flying across */
+  .kitten { animation-name: flyAcross; }
+  .k1 { font-size: 3rem; top: 8%; animation-duration: 7s; animation-delay: 0s; }
+  .k2 { font-size: 2.5rem; top: 45%; animation-duration: 5s; animation-delay: 2s; }
+  .k3 { font-size: 2rem; top: 75%; animation-duration: 9s; animation-delay: 4s; }
+  @keyframes flyAcross {
+    0% { left: -80px; transform: rotate(0deg) scaleX(-1); }
+    50% { transform: rotate(15deg) scaleX(-1); }
+    100% { left: calc(100% + 80px); transform: rotate(-10deg) scaleX(-1); }
+  }
+
+  /* Lasers from kittens */
+  .laser {
+    height: 4px;
+    border-radius: 2px;
+    animation-name: laserShoot;
+  }
+  .l1 { width: 120px; top: 11%; background: linear-gradient(90deg, transparent, #ff0000, #ff0000); animation-duration: 7s; animation-delay: 0.5s; }
+  .l2 { width: 100px; top: 48%; background: linear-gradient(90deg, transparent, #00ff00, #00ff00); animation-duration: 5s; animation-delay: 2.5s; }
+  .l3 { width: 90px; top: 77%; background: linear-gradient(90deg, transparent, #ff00ff, #ff00ff); animation-duration: 9s; animation-delay: 4.5s; }
+  @keyframes laserShoot {
+    0% { left: -80px; opacity: 0; }
+    5% { opacity: 1; }
+    95% { opacity: 1; }
+    100% { left: calc(100% + 80px); opacity: 0; }
+  }
+
+  /* Giant monsters */
+  .monster { animation-name: monsterFloat; }
+  .m1 { font-size: 5rem; right: -20px; top: 15%; animation-duration: 6s; opacity: 0.3; }
+  .m2 { font-size: 7rem; left: -30px; top: 55%; animation-duration: 8s; animation-delay: 3s; opacity: 0.25; }
+  .m3 { font-size: 4rem; right: 10%; top: 80%; animation-duration: 5s; animation-delay: 1s; opacity: 0.3; }
+  @keyframes monsterFloat {
+    0%,100% { transform: translateY(0) scale(1); }
+    25% { transform: translateY(-30px) scale(1.05); }
+    75% { transform: translateY(20px) scale(0.95); }
+  }
+
+  /* Shopping carts flying */
+  .cart { animation-name: cartFly; }
+  .c1 { font-size: 2.5rem; top: 25%; animation-duration: 4s; animation-delay: 1s; }
+  .c2 { font-size: 3rem; top: 65%; animation-duration: 6s; animation-delay: 3s; }
+  @keyframes cartFly {
+    0% { right: -60px; transform: rotate(0deg); }
+    50% { transform: rotate(-30deg) translateY(-40px); }
+    100% { right: calc(100% + 60px); transform: rotate(15deg); }
+  }
+
+  /* Food flying everywhere */
+  .food { animation-name: foodSpin; }
+  .f1 { top: 5%; left: 20%; font-size: 2rem; animation-duration: 4s; }
+  .f2 { top: 18%; left: 70%; font-size: 1.8rem; animation-duration: 5s; animation-delay: 0.5s; }
+  .f3 { top: 35%; left: 10%; font-size: 2.2rem; animation-duration: 3.5s; animation-delay: 1s; }
+  .f4 { top: 50%; left: 80%; font-size: 1.6rem; animation-duration: 4.5s; animation-delay: 2s; }
+  .f5 { top: 60%; left: 40%; font-size: 2rem; animation-duration: 3s; animation-delay: 0.8s; }
+  .f6 { top: 85%; left: 60%; font-size: 1.8rem; animation-duration: 5.5s; animation-delay: 1.5s; }
+  .f7 { top: 92%; left: 15%; font-size: 2.4rem; animation-duration: 4s; animation-delay: 3s; }
+  @keyframes foodSpin {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0.7; }
+    25% { transform: translateY(-60px) rotate(120deg); opacity: 1; }
+    50% { transform: translateY(-20px) rotate(240deg); opacity: 0.8; }
+    75% { transform: translateY(-80px) rotate(300deg); opacity: 1; }
+    100% { transform: translateY(0) rotate(360deg); opacity: 0.7; }
+  }
+
+  /* Sparkles */
+  .sparkle { animation-name: sparklePulse; }
+  .sp1 { top: 12%; left: 50%; font-size: 2rem; animation-duration: 1.2s; }
+  .sp2 { top: 40%; left: 85%; font-size: 1.5rem; animation-duration: 1.5s; animation-delay: 0.3s; }
+  .sp3 { top: 70%; left: 25%; font-size: 2.5rem; animation-duration: 1s; animation-delay: 0.7s; }
+  @keyframes sparklePulse {
+    0%,100% { transform: scale(0.5) rotate(0deg); opacity: 0.3; }
+    50% { transform: scale(1.5) rotate(180deg); opacity: 1; }
+  }
+
+  /* Rainbow bar */
+  .rainbow {
+    animation-name: rainbowSlide;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+  }
+  .r1 {
+    width: 100%;
+    height: 8px;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(90deg, #ff0000, #ff8800, #ffff00, #00ff00, #00bbff, #8800ff, #ff0088, #ff0000);
+    background-size: 200% 100%;
+    animation: rainbowSlide 2s linear infinite;
+    opacity: 0.8;
+    border-radius: 0;
+  }
+  @keyframes rainbowSlide {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 200% 0%; }
+  }
+
+  /* Chaos mode: new elements */
+  body.chaos-mode .qty-label { color: #fff; }
+  body.chaos-mode .stepper { background: #1a1a30; border-color: #7b68c8; }
+  body.chaos-mode .stepper-btn {
+    background: #2a1a4a;
+    color: #00e5ff;
+    text-shadow: 0 0 6px #00e5ff66;
+  }
+  body.chaos-mode .stepper-btn:hover { background: #3a2a6a; }
+  body.chaos-mode .stepper .qty-input {
+    background: #1a1a30;
+    color: #fff;
+    border-color: #7b68c8;
+  }
+  body.chaos-mode .ocr-tip {
+    background: #1a1a30;
+    border-left-color: #ffe600;
+    color: #ccc;
+  }
+  body.chaos-mode .ocr-warning {
+    background: #1a1010;
+    border-left-color: #ff6d1f;
+    color: #ffaa66;
+  }
+  body.chaos-mode .upload-hint { color: #7b68c8; }
+  body.chaos-mode .deal-edit input {
+    background: #1a1a30;
+    border-color: #7b68c8;
+    color: #fff;
+  }
+  body.chaos-mode .deal-edit .edit-save {
+    background: #39ff14;
+    color: #0a0a12;
+  }
+  body.chaos-mode .deal-edit .edit-cancel {
+    background: #2a2a5a;
+    color: #ccc;
+  }
+  body.chaos-mode .deal-item.just-added {
+    animation-name: dealFlashChaos;
+  }
+  @keyframes dealFlashChaos {
+    0% { background: rgba(57,255,20,0.15); }
+    100% { background: transparent; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-shapes">
+  <div class="bg-s1"></div>
+  <div class="bg-s2"></div>
+  <div class="bg-s3"></div>
+  <div class="bg-s4"></div>
+  <div class="bg-s5"></div>
+  <div class="bg-s6"></div>
+  <div class="bg-s7"></div>
+  <div class="bg-s8"></div>
+  <div class="bg-s9"></div>
+  <div class="bg-s10"></div>
+</div>
+
+<h1>Checkout Checker</h1>
+<p class="subtitle">Log your deals, scan your receipt, see what's missing.</p>
+
+<!-- Chaos mode background -->
+<div class="chaos-layer" id="chaosLayer">
+  <div class="chaos-item kitten k1">&#128008;&#8205;&#11035;</div>
+  <div class="chaos-item kitten k2">&#128049;</div>
+  <div class="chaos-item kitten k3">&#128008;&#8205;&#11035;</div>
+  <div class="chaos-item laser l1"></div>
+  <div class="chaos-item laser l2"></div>
+  <div class="chaos-item laser l3"></div>
+  <div class="chaos-item monster m1">&#128122;</div>
+  <div class="chaos-item monster m2">&#128126;</div>
+  <div class="chaos-item monster m3">&#128123;</div>
+  <div class="chaos-item cart c1">&#128722;</div>
+  <div class="chaos-item cart c2">&#128722;</div>
+  <div class="chaos-item food f1">&#127829;</div>
+  <div class="chaos-item food f2">&#127846;</div>
+  <div class="chaos-item food f3">&#129385;</div>
+  <div class="chaos-item food f4">&#127838;</div>
+  <div class="chaos-item food f5">&#127836;</div>
+  <div class="chaos-item food f6">&#129361;</div>
+  <div class="chaos-item food f7">&#127843;</div>
+  <div class="chaos-item sparkle sp1">&#10024;</div>
+  <div class="chaos-item sparkle sp2">&#10024;</div>
+  <div class="chaos-item sparkle sp3">&#127775;</div>
+  <div class="chaos-item rainbow r1"></div>
+</div>
+
+<!-- Step 1: Log deals -->
+<div class="section">
+  <h2>1. Log your deals</h2>
+  <div class="deal-form" id="dealForm">
+    <div class="mode-toggle">
+      <button class="active" onclick="setMode('direct')">I know the price</button>
+      <button onclick="setMode('calculate')">Help me calculate</button>
+    </div>
+
+    <!-- Direct mode -->
+    <div id="directMode">
+      <input type="text" class="name-input" id="itemName" placeholder="What did you buy? (e.g. oat milk)" autocomplete="off">
+      <div class="deal-row">
+        <input type="text" class="price-input" id="itemPrice" placeholder="Deal price" inputmode="decimal" autocomplete="off">
+        <button class="btn-add" onclick="addDeal()">Add</button>
+      </div>
+      <div class="qty-row">
+        <label class="qty-label">How many?</label>
+        <div class="stepper">
+          <button type="button" class="stepper-btn" onclick="stepQty('itemQty',-1)" aria-label="Decrease">&minus;</button>
+          <input type="text" class="qty-input" id="itemQty" value="1" inputmode="numeric" autocomplete="off">
+          <button type="button" class="stepper-btn" onclick="stepQty('itemQty',1)" aria-label="Increase">&plus;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calculate mode -->
+    <div id="calcMode" style="display:none">
+      <input type="text" class="name-input" id="calcName" placeholder="What did you buy? (e.g. oat milk)" autocomplete="off">
+      <div class="deal-row">
+        <input type="text" class="price-input" id="normalPrice" placeholder="Regular price" inputmode="decimal" autocomplete="off">
+        <select id="dealType" onchange="onDealTypeChange()">
+          <option value="">Deal type</option>
+          <option value="50off">50% off</option>
+          <option value="33off">33% off</option>
+          <option value="25off">25% off</option>
+          <option value="20off">20% off</option>
+          <option value="10off">10% off</option>
+          <option value="custom_pct">Other %</option>
+          <option value="bogo">Buy 1, get 1 free</option>
+          <option value="2for1">2 for 1</option>
+          <option value="3for2">3 for 2</option>
+          <option value="fixed">Fixed discount</option>
+        </select>
+      </div>
+      <div class="deal-row" id="customRow" style="display:none">
+        <input type="text" class="custom-input" id="customValue" placeholder="Value" inputmode="decimal" autocomplete="off">
+      </div>
+      <div class="qty-row">
+        <label class="qty-label">How many?</label>
+        <div class="stepper">
+          <button type="button" class="stepper-btn" onclick="stepQty('calcQty',-1)" aria-label="Decrease">&minus;</button>
+          <input type="text" class="qty-input" id="calcQty" value="1" inputmode="numeric" autocomplete="off">
+          <button type="button" class="stepper-btn" onclick="stepQty('calcQty',1)" aria-label="Increase">&plus;</button>
+        </div>
+      </div>
+      <div class="calculated-price" id="calcPreview"></div>
+      <button class="btn-add btn-add-full" onclick="addCalcDeal()">Add</button>
+    </div>
+  </div>
+  <ul class="deal-list" id="dealList">
+    <li class="empty-state" id="emptyState">No deals logged yet</li>
+  </ul>
+</div>
+
+<!-- Step 2: Upload receipt -->
+<div class="section">
+  <h2>2. Scan your receipt</h2>
+  <p class="ocr-tip">Tip: lay the receipt flat, avoid shadows, and make sure text is sharp.</p>
+  <div class="upload-area" id="uploadArea">
+    <input type="file" accept="image/*" capture="environment" id="receiptInput" onchange="handleFile(this.files[0])">
+    <div class="upload-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+    <div class="upload-text">Tap to take a photo or choose an image</div>
+    <div class="upload-hint">Multiple photos? Just tap again to add more.</div>
+  </div>
+  <div class="photo-list" id="photoList"></div>
+  <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-text" id="progressText"></div>
+  <div class="ocr-warning" id="ocrWarning" style="display:none"></div>
+  <button class="btn-check" id="checkBtn" disabled onclick="checkDeals()">Check receipt</button>
+</div>
+
+<!-- Results -->
+<div class="section results-section" id="resultsSection">
+  <h2>Results</h2>
+  <div id="summary"></div>
+  <div id="resultsList"></div>
+  <button class="raw-toggle" onclick="toggleRaw()">Show raw receipt text</button>
+  <div class="raw-text" id="rawText"></div>
+</div>
+
+<!-- Vibe toggle at bottom -->
+<div class="vibe-toggle" id="vibeToggle">
+  <button class="active" onclick="setVibe('chill')">Chill</button>
+  <button onclick="setVibe('chaos')">CHAOS</button>
+</div>
+
+<script>
+let deals = [];
+let photos = []; // { id, file, url, text, status: 'processing'|'done'|'error' }
+let photoIdCounter = 0;
+let currentMode = 'direct';
+let editingIndex = -1;
+
+// Restore vibe from localStorage
+const savedVibe = localStorage.getItem('checkoutCheckerVibe');
+if (savedVibe === 'chaos') {
+  document.body.classList.add('chaos-mode');
+  setTimeout(() => {
+    const btns = document.querySelectorAll('.vibe-toggle button');
+    btns[0].classList.remove('active');
+    btns[1].classList.add('active');
+  }, 0);
+}
+
+function stepQty(id, delta) {
+  const el = document.getElementById(id);
+  const current = parseInt(el.value) || 1;
+  const next = Math.max(1, current + delta);
+  el.value = next;
+  if (id === 'calcQty') updateCalcPreview();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('directMode').style.display = mode === 'direct' ? 'block' : 'none';
+  document.getElementById('calcMode').style.display = mode === 'calculate' ? 'block' : 'none';
+  const btns = document.querySelectorAll('.mode-toggle button');
+  btns[0].classList.toggle('active', mode === 'direct');
+  btns[1].classList.toggle('active', mode === 'calculate');
+}
+
+function onDealTypeChange() {
+  const type = document.getElementById('dealType').value;
+  const customRow = document.getElementById('customRow');
+  const custom = document.getElementById('customValue');
+  if (type === 'custom_pct') {
+    customRow.style.display = 'flex';
+    custom.placeholder = 'What %?';
+  } else if (type === 'fixed') {
+    customRow.style.display = 'flex';
+    custom.placeholder = 'How much off?';
+  } else {
+    customRow.style.display = 'none';
+  }
+  updateCalcPreview();
+}
+
+function calcExpectedPrice(normalPrice, dealType, customValue) {
+  const p = parseFloat(normalPrice);
+  if (isNaN(p)) return null;
+  const cv = parseFloat(customValue) || 0;
+
+  switch (dealType) {
+    case '50off': return (p * 0.5).toFixed(2);
+    case '33off': return (p * 0.67).toFixed(2);
+    case '25off': return (p * 0.75).toFixed(2);
+    case '20off': return (p * 0.8).toFixed(2);
+    case '10off': return (p * 0.9).toFixed(2);
+    case 'custom_pct': return cv > 0 ? (p * (1 - cv / 100)).toFixed(2) : null;
+    case 'bogo': return (p / 2).toFixed(2);
+    case '2for1': return (p / 2).toFixed(2);
+    case '3for2': return ((p * 2) / 3).toFixed(2);
+    case 'fixed': return cv > 0 ? Math.max(0, p - cv).toFixed(2) : null;
+    default: return null;
+  }
+}
+
+function dealLabel(dealType, customValue) {
+  const labels = {
+    '50off': '50% off', '33off': '33% off', '25off': '25% off',
+    '20off': '20% off', '10off': '10% off',
+    'bogo': 'Buy 1, get 1 free', '2for1': '2 for 1', '3for2': '3 for 2',
+  };
+  if (dealType === 'custom_pct') return `${customValue}% off`;
+  if (dealType === 'fixed') return `${customValue} off`;
+  return labels[dealType] || '';
+}
+
+function updateCalcPreview() {
+  const normal = document.getElementById('normalPrice').value.replace(/[^0-9.]/g, '');
+  const qty = parseInt(document.getElementById('calcQty').value) || 1;
+  const type = document.getElementById('dealType').value;
+  const custom = document.getElementById('customValue').value;
+  const preview = document.getElementById('calcPreview');
+  const unitResult = calcExpectedPrice(normal, type, custom);
+  if (unitResult !== null) {
+    const total = (parseFloat(unitResult) * qty).toFixed(2);
+    const qtyNote = qty > 1 ? ` x ${qty} = ${total}` : '';
+    preview.textContent = `Expected: ${unitResult}${qtyNote} (${dealLabel(type, custom)})`;
+  } else {
+    preview.textContent = '';
+  }
+}
+
+// Live preview as user types
+document.getElementById('normalPrice').addEventListener('input', updateCalcPreview);
+document.getElementById('calcQty').addEventListener('input', updateCalcPreview);
+document.getElementById('customValue').addEventListener('input', updateCalcPreview);
+
+function addDeal() {
+  const nameEl = document.getElementById('itemName');
+  const qtyEl = document.getElementById('itemQty');
+  const priceEl = document.getElementById('itemPrice');
+  const name = nameEl.value.trim();
+  const qty = parseInt(qtyEl.value) || 1;
+  const unitPrice = priceEl.value.replace(/[^0-9.]/g, '');
+  if (!name) return;
+
+  const expectedPrice = unitPrice ? (parseFloat(unitPrice) * qty).toFixed(2) : null;
+  const label = qty > 1 && unitPrice ? `${qty} x ${unitPrice} each` : (unitPrice ? 'Direct price' : '');
+  deals.push({ name, expectedPrice, dealLabel: label });
+  nameEl.value = '';
+  qtyEl.value = '1';
+  priceEl.value = '';
+  nameEl.focus();
+  renderDeals(true);
+}
+
+function addCalcDeal() {
+  const nameEl = document.getElementById('calcName');
+  const qtyEl = document.getElementById('calcQty');
+  const normalEl = document.getElementById('normalPrice');
+  const typeEl = document.getElementById('dealType');
+  const customEl = document.getElementById('customValue');
+
+  const name = nameEl.value.trim();
+  const qty = parseInt(qtyEl.value) || 1;
+  const normal = normalEl.value.replace(/[^0-9.]/g, '');
+  const type = typeEl.value;
+  const custom = customEl.value;
+
+  if (!name || !normal || !type) return;
+
+  const unitDealPrice = calcExpectedPrice(normal, type, custom);
+  if (unitDealPrice === null) return;
+
+  const expectedPrice = (parseFloat(unitDealPrice) * qty).toFixed(2);
+  const label = qty > 1
+    ? `${qty} x ${unitDealPrice} each (was ${parseFloat(normal).toFixed(2)} — ${dealLabel(type, custom)})`
+    : `Was ${parseFloat(normal).toFixed(2)} — ${dealLabel(type, custom)}`;
+  deals.push({ name, expectedPrice, dealLabel: label });
+
+  nameEl.value = '';
+  qtyEl.value = '1';
+  normalEl.value = '';
+  typeEl.value = '';
+  customEl.value = '';
+  document.getElementById('customRow').style.display = 'none';
+  document.getElementById('calcPreview').textContent = '';
+  nameEl.focus();
+  renderDeals(true);
+}
+
+// Enter key support
+document.getElementById('itemPrice').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addDeal();
+});
+document.getElementById('itemName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('itemPrice').focus();
+});
+document.getElementById('customValue').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addCalcDeal();
+});
+
+function removeDeal(i) {
+  deals.splice(i, 1);
+  renderDeals();
+}
+
+function renderDeals(flashLast) {
+  const list = document.getElementById('dealList');
+  if (deals.length === 0) {
+    list.innerHTML = '<li class="empty-state" id="emptyState">No deals logged yet</li>';
+    editingIndex = -1;
+    updateCheckBtn();
+    return;
+  }
+  list.innerHTML = deals.map((d, i) => {
+    if (i === editingIndex) {
+      return `<li class="deal-edit">
+        <input class="edit-name" id="editName" value="${esc(d.name)}">
+        <input class="edit-price" id="editPrice" value="${d.expectedPrice ? esc(d.expectedPrice) : ''}" inputmode="decimal" placeholder="Price">
+        <button class="edit-save" onclick="saveEdit(${i})">Save</button>
+        <button class="edit-cancel" onclick="cancelEdit()">Cancel</button>
+      </li>`;
+    }
+    const isLast = flashLast && i === deals.length - 1;
+    return `<li class="deal-item${isLast ? ' just-added' : ''}">
+      <div class="info" onclick="startEdit(${i})">
+        <span class="item-name">${esc(d.name)}</span>
+        ${d.expectedPrice ? ` &mdash; <span class="item-price">${esc(d.expectedPrice)}</span>` : ''}
+        ${d.dealLabel ? `<br><span style="color:#888;font-size:0.8rem">${esc(d.dealLabel)}</span>` : ''}
+      </div>
+      <button class="remove" onclick="removeDeal(${i})">&times;</button>
+    </li>`;
+  }).join('');
+  updateCheckBtn();
+}
+
+function startEdit(i) {
+  editingIndex = i;
+  renderDeals();
+  const nameEl = document.getElementById('editName');
+  if (nameEl) nameEl.focus();
+}
+
+function saveEdit(i) {
+  const name = document.getElementById('editName').value.trim();
+  const price = document.getElementById('editPrice').value.replace(/[^0-9.]/g, '');
+  if (name) {
+    deals[i].name = name;
+    deals[i].expectedPrice = price ? parseFloat(price).toFixed(2) : deals[i].expectedPrice;
+  }
+  editingIndex = -1;
+  renderDeals();
+}
+
+function cancelEdit() {
+  editingIndex = -1;
+  renderDeals();
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function handleFile(file) {
+  if (!file) return;
+  // Reset the input so the same file can be re-added
+  document.getElementById('receiptInput').value = '';
+
+  const id = ++photoIdCounter;
+  const url = URL.createObjectURL(file);
+  const photo = { id, file, url, text: '', status: 'processing' };
+  photos.push(photo);
+  renderPhotos();
+  updateProgress();
+
+  Tesseract.recognize(file, 'eng', {
+    logger: m => {
+      if (m.status === 'recognizing text') {
+        updateProgress();
+      }
+    }
+  }).then(({ data }) => {
+    photo.text = data.text;
+    photo.status = 'done';
+    renderPhotos();
+    updateProgress();
+    updateCheckBtn();
+  }).catch(err => {
+    photo.status = 'error';
+    renderPhotos();
+    updateProgress();
+    console.error(err);
+  });
+}
+
+function removePhoto(id) {
+  photos = photos.filter(p => p.id !== id);
+  renderPhotos();
+  updateProgress();
+  updateCheckBtn();
+}
+
+function renderPhotos() {
+  const list = document.getElementById('photoList');
+  if (photos.length === 0) {
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = photos.map((p, i) => `
+    <div class="photo-thumb ${p.status}">
+      <img src="${p.url}" alt="Receipt part ${i + 1}">
+      <div class="photo-label">${p.status === 'processing' ? 'Reading...' : p.status === 'error' ? 'Error' : 'Part ' + (i + 1)}</div>
+      <button class="photo-remove" onclick="removePhoto(${p.id})">&times;</button>
+    </div>
+  `).join('');
+}
+
+function updateProgress() {
+  const bar = document.getElementById('progressBar');
+  const fill = document.getElementById('progressFill');
+  const text = document.getElementById('progressText');
+  const processing = photos.filter(p => p.status === 'processing').length;
+  const done = photos.filter(p => p.status === 'done').length;
+  const total = photos.length;
+
+  if (total === 0) {
+    bar.style.display = 'none';
+    text.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = 'block';
+  text.style.display = 'block';
+  fill.style.width = Math.round((done / total) * 100) + '%';
+
+  if (processing > 0) {
+    text.textContent = `Reading photo ${done + 1} of ${total}...`;
+  } else {
+    text.textContent = `All ${total} photo${total > 1 ? 's' : ''} read!`;
+  }
+}
+
+// Drag and drop
+const uploadArea = document.getElementById('uploadArea');
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length) {
+    for (const f of e.dataTransfer.files) handleFile(f);
+  }
+});
+
+function getReceiptText() {
+  return photos.filter(p => p.status === 'done').map(p => p.text).join('\n');
+}
+
+function updateCheckBtn() {
+  const anyDone = photos.some(p => p.status === 'done');
+  const noneProcessing = !photos.some(p => p.status === 'processing');
+  document.getElementById('checkBtn').disabled = !(deals.length > 0 && anyDone && noneProcessing);
+}
+
+function checkDeals() {
+  const receiptText = getReceiptText();
+  const lines = receiptText.toLowerCase();
+
+  // Show OCR warning if text looks garbled or very short
+  const ocrWarning = document.getElementById('ocrWarning');
+  const wordCount = receiptText.trim().split(/\s+/).length;
+  if (wordCount < 10) {
+    ocrWarning.style.display = 'block';
+    ocrWarning.textContent = 'The scanned text is very short. The photo may be blurry or too dark — try retaking it.';
+  } else if (/[^a-zA-Z0-9\s.,\-:;\/\\()$%&*#@!'"]{10,}/.test(receiptText)) {
+    ocrWarning.style.display = 'block';
+    ocrWarning.textContent = 'Some text looks garbled. Try a clearer, well-lit photo for better results.';
+  } else {
+    ocrWarning.style.display = 'none';
+  }
+
+  const receiptLines = receiptText.split(/\r?\n/);
+
+  // Find the receipt line that best matches an item name, and pull the price off it
+  function findMatchingLine(name) {
+    const fullName = name.toLowerCase().trim();
+    const keywords = fullName.split(/\s+/).filter(kw => kw.length > 2);
+    let bestLine = null;
+    let bestScore = 0;
+    for (const line of receiptLines) {
+      const low = line.toLowerCase();
+      let score = 0;
+      if (low.includes(fullName)) score = 100;
+      else {
+        for (const kw of keywords) if (low.includes(kw)) score += 1;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestLine = line;
+      }
+    }
+    return { line: bestLine, score: bestScore, keywords };
+  }
+
+  // Extract the last price-like number from a line (e.g. "3.49", "2,00", "€1.99")
+  function extractPriceFromLine(line) {
+    if (!line) return null;
+    const matches = line.match(/\d+[.,]\d{2}/g);
+    if (!matches || matches.length === 0) return null;
+    // Take the last one — typically the line total is at the end
+    return matches[matches.length - 1].replace(',', '.');
+  }
+
+  const results = deals.map(deal => {
+    const match = findMatchingLine(deal.name);
+    const found = match.score > 0;
+    const confidence = match.score >= 100
+      ? 'exact'
+      : (match.score === match.keywords.length && match.keywords.length > 0 ? 'good' : 'partial');
+
+    // Extract actual price from the matched line
+    const paidPrice = found ? extractPriceFromLine(match.line) : null;
+
+    // Compare prices (tolerate small OCR rounding)
+    let priceFound = false;
+    let priceMismatch = false;
+    if (deal.expectedPrice && paidPrice !== null) {
+      const expected = parseFloat(deal.expectedPrice);
+      const paid = parseFloat(paidPrice);
+      if (!isNaN(expected) && !isNaN(paid)) {
+        if (Math.abs(expected - paid) < 0.015) {
+          priceFound = true;
+        } else {
+          priceMismatch = true;
+        }
+      }
+    } else if (deal.expectedPrice) {
+      // Fallback: just check if expected number appears anywhere
+      priceFound = lines.includes(deal.expectedPrice);
+    }
+
+    return { ...deal, found, priceFound, priceMismatch, paidPrice, confidence };
+  });
+
+  const missing = results.filter(r => !r.found);
+  const section = document.getElementById('resultsSection');
+  const summary = document.getElementById('summary');
+  const list = document.getElementById('resultsList');
+
+  section.style.display = 'block';
+
+  const problems = results.filter(r => !r.found || r.priceMismatch);
+  if (problems.length === 0) {
+    summary.className = 'summary summary-good';
+    summary.textContent = 'All deals look correct on your receipt!';
+  } else {
+    summary.className = 'summary summary-bad';
+    summary.textContent = `${problems.length} problem${problems.length > 1 ? 's' : ''} found — check below!`;
+  }
+
+  list.innerHTML = results.map(r => {
+    if (!r.found) {
+      return `<div class="result-item result-missing">
+        <div class="status">Not found: ${esc(r.name)}</div>
+        <div class="detail">"${esc(r.name)}" was not detected on the receipt. The deal may not have been applied.${r.expectedPrice ? ` Expected price: ${esc(r.expectedPrice)}` : ''}</div>
+      </div>`;
+    }
+    if (r.priceMismatch) {
+      const diff = (parseFloat(r.paidPrice) - parseFloat(r.expectedPrice)).toFixed(2);
+      const overpaid = parseFloat(diff) > 0;
+      return `<div class="result-item result-missing">
+        <div class="status">Price mismatch: ${esc(r.name)}</div>
+        <div class="detail">You paid <strong>${esc(r.paidPrice)}</strong>, but the deal price should have been <strong>${esc(r.expectedPrice)}</strong>. ${overpaid ? `That's <strong>${esc(Math.abs(diff).toFixed(2))} too much</strong> — the deal may not have been applied.` : ''}</div>
+      </div>`;
+    }
+    const confNote = r.confidence === 'partial' ? ' (partial name match — double-check it\'s the right item)' : '';
+    const priceLine = r.expectedPrice
+      ? (r.priceFound
+          ? `Paid <strong>${esc(r.paidPrice || r.expectedPrice)}</strong> — matches the deal price.`
+          : `Item appears on receipt.`)
+      : `Item appears on receipt.`;
+    return `<div class="result-item result-found">
+      <div class="status">Looks good: ${esc(r.name)}</div>
+      <div class="detail">${priceLine}${confNote}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rawText').textContent = receiptText;
+  section.scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleRaw() {
+  const el = document.getElementById('rawText');
+  el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+
+function setVibe(vibe) {
+  const btns = document.querySelectorAll('.vibe-toggle button');
+  btns[0].classList.toggle('active', vibe === 'chill');
+  btns[1].classList.toggle('active', vibe === 'chaos');
+  document.body.classList.toggle('chaos-mode', vibe === 'chaos');
+  localStorage.setItem('checkoutCheckerVibe', vibe);
+}
+</script>
+</body>
+</html>
