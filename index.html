@@ -1023,12 +1023,12 @@
   <h2>1. Log your deals</h2>
   <div class="deal-form" id="dealForm">
     <div class="mode-toggle">
-      <button class="active" onclick="setMode('direct')">I know the price</button>
-      <button onclick="setMode('calculate')">Help me calculate</button>
+      <button class="active" onclick="setMode('calculate')">Help me calculate</button>
+      <button onclick="setMode('direct')">I know the price</button>
     </div>
 
     <!-- Direct mode -->
-    <div id="directMode">
+    <div id="directMode" style="display:none">
       <input type="text" class="name-input" id="itemName" placeholder="What did you buy? (e.g. oat milk)" autocomplete="off">
       <div class="deal-row">
         <input type="text" class="price-input" id="itemPrice" placeholder="Deal price" inputmode="decimal" autocomplete="off">
@@ -1045,7 +1045,7 @@
     </div>
 
     <!-- Calculate mode -->
-    <div id="calcMode" style="display:none">
+    <div id="calcMode">
       <input type="text" class="name-input" id="calcName" placeholder="What did you buy? (e.g. oat milk)" autocomplete="off">
       <div class="deal-row">
         <input type="text" class="price-input" id="normalPrice" placeholder="Regular price" inputmode="decimal" autocomplete="off">
@@ -1119,7 +1119,7 @@
 let deals = [];
 let photos = []; // { id, file, url, text, status: 'processing'|'done'|'error' }
 let photoIdCounter = 0;
-let currentMode = 'direct';
+let currentMode = 'calculate';
 let editingIndex = -1;
 
 // Restore vibe from localStorage
@@ -1146,8 +1146,8 @@ function setMode(mode) {
   document.getElementById('directMode').style.display = mode === 'direct' ? 'block' : 'none';
   document.getElementById('calcMode').style.display = mode === 'calculate' ? 'block' : 'none';
   const btns = document.querySelectorAll('.mode-toggle button');
-  btns[0].classList.toggle('active', mode === 'direct');
-  btns[1].classList.toggle('active', mode === 'calculate');
+  btns[0].classList.toggle('active', mode === 'calculate');
+  btns[1].classList.toggle('active', mode === 'direct');
 }
 
 function onDealTypeChange() {
