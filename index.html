@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Checkout Checker</title>
+<title>Check out your Checkout ;)</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
@@ -177,8 +177,13 @@
   .deal-form {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 14px;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  #directMode, #calcMode {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
   .deal-row {
     display: flex;
@@ -314,6 +319,7 @@
     animation: dealFlash 0.8s ease-out;
   }
 
+  .calculated-price:empty { display: none; }
   .calculated-price {
     font-size: 0.95rem;
     color: #1a8a3f;
@@ -989,7 +995,7 @@
   <div class="bg-s10"></div>
 </div>
 
-<h1>Checkout Checker</h1>
+<h1>Check out your Checkout ;)</h1>
 <p class="subtitle">Log your deals, scan your receipt, see what's missing.</p>
 
 <!-- Chaos mode background -->
@@ -1030,10 +1036,7 @@
     <!-- Direct mode -->
     <div id="directMode" style="display:none">
       <input type="text" class="name-input" id="itemName" placeholder="What are you buying? (e.g. oat milk)" autocomplete="off">
-      <div class="deal-row">
-        <input type="text" class="price-input" id="itemPrice" placeholder="Deal price" inputmode="decimal" autocomplete="off">
-        <button class="btn-add" onclick="addDeal()">Add</button>
-      </div>
+      <input type="text" class="price-input name-input" id="itemPrice" placeholder="Deal price" inputmode="decimal" autocomplete="off">
       <div class="qty-row">
         <label class="qty-label">How many?</label>
         <div class="stepper">
@@ -1042,6 +1045,7 @@
           <button type="button" class="stepper-btn" onclick="stepQty('itemQty',1)" aria-label="Increase">&plus;</button>
         </div>
       </div>
+      <button class="btn-add btn-add-full" onclick="addDeal()">Add</button>
     </div>
 
     <!-- Calculate mode -->
@@ -1143,8 +1147,8 @@ function stepQty(id, delta) {
 
 function setMode(mode) {
   currentMode = mode;
-  document.getElementById('directMode').style.display = mode === 'direct' ? 'block' : 'none';
-  document.getElementById('calcMode').style.display = mode === 'calculate' ? 'block' : 'none';
+  document.getElementById('directMode').style.display = mode === 'direct' ? 'flex' : 'none';
+  document.getElementById('calcMode').style.display = mode === 'calculate' ? 'flex' : 'none';
   const btns = document.querySelectorAll('.mode-toggle button');
   btns[0].classList.toggle('active', mode === 'calculate');
   btns[1].classList.toggle('active', mode === 'direct');
